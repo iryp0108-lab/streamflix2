@@ -1,6 +1,6 @@
 <resources>
-    <color name="ic_launcher_background">#1E2129</color>
-    <color name="ic_banner_background">#1E2129</color>
+    <color name="ic_launcher_background">#C435B1</color>
+    <color name="ic_banner_background">#C435B1</color>
 
     <array name="genres">
         <item>#E13300</item>
