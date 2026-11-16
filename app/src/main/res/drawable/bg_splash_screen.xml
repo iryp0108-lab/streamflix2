@@ -4,14 +4,18 @@
 
     <item>
         <shape android:shape="rectangle">
-            <solid android:color="#1E2129" />
+            <gradient
+                android:type="linear"
+                android:angle="315"
+                android:startColor="#6A1B9A"
+                android:endColor="#FF4081" />
         </shape>
     </item>
 
     <item
-        android:width="320dp"
-        android:height="180dp"
-        android:drawable="@mipmap/ic_banner_foreground"
+        android:width="300dp"
+        android:height="300dp"
+        android:drawable="@drawable/splash_logo"
         android:gravity="center" />
 
 </layer-list>
