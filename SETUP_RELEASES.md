@@ -1,52 +1,35 @@
-# Releases y auto-actualización (iryp0108-lab/streamflix2)
+# Pablito's TV — compilar y publicar (método principal)
 
-El *in-app updater* ya quedó apuntando a **este** repo
-(`InAppUpdater.kt`: `GITHUB_OWNER="iryp0108-lab"`, `GITHUB_REPO="streamflix2"`).
-El workflow `.github/workflows/release.yml` compila, firma y publica el APK como
-*release* al empujar un tag `vX.Y.Z`. La app, al abrir, ve el release nuevo aquí y
-ofrece actualizar.
+El APK se genera con el workflow **`.github/workflows/build-pablito.yml`**, que:
+1. Clona la fuente **más reciente** de StreamFlix Reborn desde **git.gay**
+   (`https://git.gay/streamflix-reborn2/streamflix.git`) — extractores y listas al día.
+2. Le aplica la marca **Pablito's TV** (icono, splash, nombre, versión) con
+   `ci/apply_branding.py` e intenta repuntar el updater a este repo.
+3. Compila, firma con tu keystore y publica el APK como *release*.
 
-## 1. Secrets (una sola vez)
+> El proyecto se movió de GitHub a git.gay tras un DMCA. Por eso NO se compila el
+> código congelado de este fork, sino el upstream vivo. Así los extractores (voe,
+> etc.) se mantienen al día solos cada vez que corres el workflow.
 
-En **Settings → Secrets and variables → Actions → New repository secret** del repo
-`streamflix2`, crea:
+## Secrets (una sola vez)
+
+En **Settings → Secrets and variables → Actions → New repository secret**:
 
 | Secret | Valor |
 |--------|-------|
-| `KEYSTORE` | el contenido de `xptv-keystore.p12.base64` (el que te entregué) |
+| `KEYSTORE` | contenido de `xptv-keystore.p12.base64` |
 | `SIGNING_KEY_ALIAS` | `xptv` |
 | `SIGNING_STORE_PASSWORD` | `xptv-sign` |
 | `SIGNING_KEY_PASSWORD` | `xptv-sign` |
-| `TMDB_API_KEY` | tu API key de TMDB (gratis en themoviedb.org → Settings → API → v3) |
-| `RABBITSTREAM_SOURCE_API` | opcional; déjalo vacío si no lo usas |
+| `TMDB_API_KEY` | tu API key de TMDB (themoviedb.org → Settings → API → v3) — **obligatoria** |
+| `RABBITSTREAM_SOURCE_API` | opcional |
 
-> **TMDB es necesario**: sin esa key la app no muestra el catálogo principal
-> (películas/series vía TMDB). Es gratis y tarda 2 minutos sacarla.
+## Compilar una versión
 
-> **Firma estable**: firma SIEMPRE con este mismo keystore. Si lo cambias, las
-> actualizaciones dejarán de instalarse encima (Android exige misma firma).
+1. Ve a **Actions → "Pablito's TV (upstream al día)" → Run workflow**.
+2. En *Versión* pon el tag (ej. `v1.7.252`, o la versión actual que veas en git.gay).
+3. **Run workflow**. En ~5–10 min el release tendrá el/los APK (`PablitosTV-*.apk`).
 
-## 2. Publicar una versión
-
-1. Sube tus mejoras a `main`.
-2. Sube el número de versión en `app/build.gradle` (`versionCode` y `versionName`,
-   p.ej. `versionName "1.7.72"`).
-3. Crea y empuja un tag con la **misma** versión y prefijo `v`:
-   ```
-   git tag v1.7.72
-   git push origin v1.7.72
-   ```
-4. El Action compila 3 APKs (universal, solo-móvil, solo-TV), los firma con tu
-   keystore y los publica en el release `v1.7.72`.
-5. La app instalada (con `versionName` menor) detecta el release y ofrece actualizar.
-
-## Notas
-
-- Esta es la base **StreamFlix Reborn** (paquete `com.streamflixreborn.streamflix`),
-  limpia y sin el control remoto de usuarios de markbn15. Es una app distinta del
-  APK parcheado de "Xuper TV" que te pasé antes (otro paquete y otra firma): se
-  instala aparte. El auto-update encadena entre versiones de ESTA app.
-- Si quieres el nombre/icono "Xuper TV", se cambian como edición propia (recursos
-  en `app/src/main/res`) y se re-compila igual.
-- El build corre en GitHub Actions (tiene Android SDK y red); no necesitas compilar
-  en tu PC.
+Para actualizar más adelante: vuelve a correr el workflow (baja lo último del
+upstream) con un tag mayor. Firma siempre con el mismo keystore para que las
+actualizaciones se instalen encima.
