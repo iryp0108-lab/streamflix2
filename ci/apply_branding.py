@@ -87,18 +87,40 @@ s = re.sub(r'versionCode\s*=\s*\d+', 'versionCode = %d' % vcode, s, count=1)
 open(bg, 'w', encoding='utf-8').write(s)
 print('version fijada: name=%s code=%d' % (VERSION, vcode))
 
-# 5) repuntar in-app updater (best-effort; el upstream pudo moverlo a git.gay)
-upd = glob.glob(os.path.join(UP, 'app/src/main/java/**/InAppUpdater.kt'), recursive=True)
-patched = False
-for f in upd:
+# 5) repuntar in-app updater a TU repo de GitHub
+# 5a) owner/repo (soporta nombres nuevos REPO_OWNER/REPO_NAME y viejos GITHUB_*)
+changed_upd = False
+for f in glob.glob(os.path.join(UP, 'app/src/main/java/**/InAppUpdater.kt'), recursive=True):
     s = open(f, encoding='utf-8').read(); o = s
-    s = re.sub(r'(GITHUB_OWNER\s*=\s*)"[^"]*"', r'\1"iryp0108-lab"', s)
-    s = re.sub(r'(GITHUB_REPO\s*=\s*)"[^"]*"', r'\1"streamflix2"', s)
+    for owner_key in ('REPO_OWNER', 'GITHUB_OWNER'):
+        s = re.sub(r'(%s\s*=\s*)"[^"]*"' % owner_key, r'\g<1>"iryp0108-lab"', s)
+    for repo_key in ('REPO_NAME', 'GITHUB_REPO'):
+        s = re.sub(r'(%s\s*=\s*)"[^"]*"' % repo_key, r'\g<1>"streamflix2"', s)
     if s != o:
-        open(f, 'w', encoding='utf-8').write(s); patched = True
-print('updater repuntado a iryp0108-lab/streamflix2' if patched
-      else 'AVISO: no se pudo repuntar el updater (el upstream cambió su updater); '
-           'actualiza re-corriendo el Action')
+        open(f, 'w', encoding='utf-8').write(s); changed_upd = True
+
+# 5b) el cliente de releases usa la API Forgejo de git.gay; Forgejo imita la API de
+# GitHub (mismas rutas y campos), así que basta apuntar la base a api.github.com.
+# GitHub EXIGE un header User-Agent o responde 403, por eso se añade un OkHttpClient.
+changed_api = False
+for f in glob.glob(os.path.join(UP, 'app/src/main/java/**/GitGay.kt'), recursive=True):
+    s = open(f, encoding='utf-8').read(); o = s
+    s = s.replace(
+        '.baseUrl("https://git.gay/api/v1/")',
+        '.baseUrl("https://api.github.com/")\n'
+        '                    .client(okhttp3.OkHttpClient.Builder().addInterceptor { c -> '
+        'c.proceed(c.request().newBuilder()'
+        '.header("User-Agent", "PablitosTV")'
+        '.header("Accept", "application/vnd.github+json").build()) }.build())'
+    )
+    if s != o:
+        open(f, 'w', encoding='utf-8').write(s); changed_api = True
+
+if changed_upd and changed_api:
+    print('updater repuntado a iryp0108-lab/streamflix2 (via API de GitHub)')
+else:
+    print('AVISO updater: owner/repo cambiado=%s, cliente API cambiado=%s '
+          '(revisar si el upstream cambió esos archivos)' % (changed_upd, changed_api))
 
 # 6) fix DoH OpenDNS (best-effort)
 doh = os.path.join(up_res, 'values/doh_resources.xml')
