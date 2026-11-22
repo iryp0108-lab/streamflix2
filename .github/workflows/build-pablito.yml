@@ -1,0 +1,89 @@
+name: Pablito's TV (upstream al día)
+
+# Compila la ULTIMA fuente de StreamFlix Reborn desde git.gay (extractores y
+# listas al día), le aplica la marca Pablito's TV, firma y publica el release.
+# Córrelo desde Actions -> "Pablito's TV (upstream al día)" -> Run workflow.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Versión / tag a publicar (ej. v1.7.252). Suele ser la versión actual del upstream.'
+        required: true
+        default: 'v1.7.252'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (marca y script de este repo)
+        uses: actions/checkout@v4
+
+      - name: Resolver tag
+        id: ver
+        run: echo "tag=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Clonar upstream al día (git.gay)
+        run: git clone --depth 1 https://git.gay/streamflix-reborn2/streamflix.git upstream
+
+      - name: Aplicar marca Pablito's TV
+        run: python3 ci/apply_branding.py upstream app/src/main/res "${{ steps.ver.outputs.tag }}"
+
+      - name: Secrets -> local.properties
+        working-directory: upstream
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          RABBITSTREAM_SOURCE_API: ${{ secrets.RABBITSTREAM_SOURCE_API }}
+        run: |
+          echo "TMDB_API_KEY=$TMDB_API_KEY" >> local.properties
+          echo "RABBITSTREAM_SOURCE_API=$RABBITSTREAM_SOURCE_API" >> local.properties
+
+      - name: Build release
+        working-directory: upstream
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleRelease --stacktrace
+
+      - name: Firmar APK
+        id: sign
+        uses: r0adkll/sign-android-release@v1
+        with:
+          releaseDirectory: upstream/app/build/outputs/apk/release
+          signingKeyBase64: ${{ secrets.KEYSTORE }}
+          alias: ${{ secrets.SIGNING_KEY_ALIAS }}
+          keyStorePassword: ${{ secrets.SIGNING_STORE_PASSWORD }}
+          keyPassword: ${{ secrets.SIGNING_KEY_PASSWORD }}
+        env:
+          BUILD_TOOLS_VERSION: "34.0.0"
+
+      - name: Preparar APKs firmados
+        id: collect
+        run: |
+          mkdir -p out
+          for f in upstream/app/build/outputs/apk/release/*-signed.apk; do
+            [ -e "$f" ] || continue
+            base=$(basename "$f" | sed 's/-release.*//')
+            cp "$f" "out/PablitosTV-${{ steps.ver.outputs.tag }}-${base}.apk"
+          done
+          # fallback: si r0adkll reportó un único archivo con otro nombre
+          if [ -z "$(ls -A out 2>/dev/null)" ] && [ -n "${{ steps.sign.outputs.signedReleaseFile }}" ]; then
+            cp "${{ steps.sign.outputs.signedReleaseFile }}" "out/PablitosTV-${{ steps.ver.outputs.tag }}.apk"
+          fi
+          ls -la out
+
+      - name: Publicar release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: "Pablito's TV ${{ steps.ver.outputs.tag }}"
+          generate_release_notes: true
+          files: out/*.apk
