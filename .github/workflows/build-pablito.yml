@@ -33,7 +33,13 @@ jobs:
           java-version: '17'
 
       - name: Clonar upstream al día (git.gay)
-        run: git clone --depth 1 https://git.gay/streamflix-reborn2/streamflix.git upstream
+        run: |
+          for i in 1 2 3; do
+            git clone --depth 1 https://git.gay/streamflix-reborn2/streamflix.git upstream && break
+            echo "Intento $i de clonar git.gay falló; reintento en 15s..."
+            rm -rf upstream; sleep 15
+          done
+          test -d upstream/app || { echo "ERROR: no se pudo clonar git.gay tras 3 intentos"; exit 1; }
 
       - name: Aplicar marca Pablito's TV
         run: python3 ci/apply_branding.py upstream app/src/main/res "${{ steps.ver.outputs.tag }}"
